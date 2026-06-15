@@ -10,19 +10,18 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="ambient">
-    <span class="ember" style="left:18%; animation-delay:0s"></span>
-    <span class="ember" style="left:42%; animation-delay:2.6s"></span>
-    <span class="ember" style="left:70%; animation-delay:4.2s"></span>
-    <span class="ember" style="left:86%; animation-delay:1.4s"></span>
-  </div>
+  <div class="bg"></div>
 
   <main class="wrap">
     <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark">F</span>
+      <a class="brand" href="/" aria-label="FlopGames">
+        <svg class="brand-logo" viewBox="0 0 52 50" aria-hidden="true">
+          <polygon points="15,3 47,3 40,16 8,16" fill="var(--green)"/>
+          <polygon points="12,21 38,21 32,33 6,33" fill="var(--green)"/>
+          <polygon points="15,3 28,3 17,47 4,47" fill="var(--green)"/>
+        </svg>
         <span class="brand-name">FLOPGAMES</span>
-      </div>
+      </a>
       <div class="secure-pill">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
         Compra confirmada
@@ -33,11 +32,11 @@
       <div class="success-icon">
         <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7"/></svg>
       </div>
-      <h1 class="success-title">PAGAMENTO CONFIRMADO!</h1>
-      <p class="success-sub">Seu Game Pass Ultimate foi adquirido com sucesso 🎮</p>
+      <h1 class="success-title">PAGAMENTO CONFIRMADO</h1>
+      <p class="success-sub">Seu Game Pass Ultimate foi adquirido com sucesso</p>
 
       <div class="delivery">
-        <div class="delivery-title">📦 Como você recebe sua chave</div>
+        <div class="delivery-title">Como você recebe sua chave</div>
         <div class="dstep">
           <span class="dnum">1</span>
           <span>A chave chega no seu <strong>WhatsApp</strong> em instantes</span>
@@ -52,7 +51,7 @@
         </div>
         <div class="dstep">
           <span class="dnum">4</span>
-          <span>Pronto! O <strong>Game Pass Ultimate</strong> ativa na hora ⚡</span>
+          <span>Pronto! O <strong>Game Pass Ultimate</strong> ativa na hora</span>
         </div>
       </div>
 
@@ -72,7 +71,7 @@
 
     fetch('/api/config').then(r => r.json()).then(cfg => {
       const pedido = ref ? `Pedido: ${ref}` : 'um pedido';
-      const msg = encodeURIComponent(`Olá! Acabei de pagar o Game Pass Ultimate (${pedido}) e aguardo minha chave. 😊`);
+      const msg = encodeURIComponent(`Olá! Acabei de pagar o Game Pass Ultimate (${pedido}) e aguardo minha chave.`);
       const btn = document.getElementById('btn-whatsapp');
       btn.href = cfg.whatsapp ? `https://wa.me/${cfg.whatsapp}?text=${msg}` : `https://wa.me/?text=${msg}`;
     }).catch(() => {});

@@ -30,9 +30,11 @@ const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || '';
 // (O repo flopgames usa os valores do plano de 1 Mês por R$ 20,00.)
 const PLAN = {
   amount_cents: 4000,
-  price_now: 'R$ 40,00',
-  price_per: '3 meses · R$ 13/mês',
-  duration_label: '3 Meses completos',
+  price_now: '40,00',              // exibido após o "R$"
+  price_per: '/ 3 meses',
+  old_price: 'de R$ 230,70',       // âncora riscada (3× R$ 76,90)
+  plan_badge: '3 MESES',           // selo do card + linha do título
+  duration_label: '3 Meses',
   plan_name: 'Game Pass Ultimate — 3 Meses'
 };
 const AMOUNT_CENTS = PLAN.amount_cents;
@@ -161,7 +163,7 @@ app.post('/api/webhook', (req, res) => {
 
   if (event === 'transaction.paid' && transaction) {
     const valor = (transaction.amount_cents / 100).toFixed(2);
-    console.log(`[Webhook] PAGO ✅ tx=${transaction.id} R$${valor}`);
+    console.log(`[Webhook] PAGO tx=${transaction.id} R$${valor}`);
     // TODO: Aqui você envia a chave do Game Pass para o cliente
     // Dados disponíveis: transaction.customer.email, .phone, .name
     // Exemplo: enviar via WhatsApp API ou email
@@ -176,6 +178,8 @@ app.get('/api/config', (_req, res) => {
     whatsapp: WHATSAPP_NUMBER,
     price_now: PLAN.price_now,
     price_per: PLAN.price_per,
+    old_price: PLAN.old_price,
+    plan_badge: PLAN.plan_badge,
     duration_label: PLAN.duration_label,
     plan_name: PLAN.plan_name
   });

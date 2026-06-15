@@ -227,9 +227,12 @@ const App = {
   async loadConfig() {
     try {
       const cfg = await (await fetch('/api/config')).json();
-      if (cfg.price_now) document.getElementById('price-now').textContent = cfg.price_now;
-      if (cfg.price_per) document.getElementById('price-per').textContent = cfg.price_per;
-      if (cfg.duration_label) document.getElementById('plan-duration').textContent = cfg.duration_label;
+      const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.textContent = v; };
+      set('price-now', cfg.price_now);
+      set('price-per', cfg.price_per);
+      set('price-old', cfg.old_price);
+      set('plan-duration', cfg.duration_label);
+      set('card-badge', cfg.plan_badge);
     } catch { /* mantém os valores padrão do HTML */ }
   },
 
