@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedido Confirmado — FlopGames</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="ambient">
+    <span class="ember" style="left:18%; animation-delay:0s"></span>
+    <span class="ember" style="left:42%; animation-delay:2.6s"></span>
+    <span class="ember" style="left:70%; animation-delay:4.2s"></span>
+    <span class="ember" style="left:86%; animation-delay:1.4s"></span>
+  </div>
+
+  <main class="wrap">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">F</span>
+        <span class="brand-name">FLOPGAMES</span>
+      </div>
+      <div class="secure-pill">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        Compra confirmada
+      </div>
+    </header>
+
+    <div class="success">
+      <div class="success-icon">
+        <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <h1 class="success-title">PAGAMENTO CONFIRMADO!</h1>
+      <p class="success-sub">Seu Game Pass Ultimate foi adquirido com sucesso 🎮</p>
+
+      <div class="delivery">
+        <div class="delivery-title">📦 Como você recebe sua chave</div>
+        <div class="dstep">
+          <span class="dnum">1</span>
+          <span>A chave chega no seu <strong>WhatsApp</strong> em instantes</span>
+        </div>
+        <div class="dstep">
+          <span class="dnum">2</span>
+          <span>Acesse <strong>microsoft.com/redeem</strong> no console ou PC</span>
+        </div>
+        <div class="dstep">
+          <span class="dnum">3</span>
+          <span>Entre na sua <strong>conta Microsoft</strong> e cole o código recebido</span>
+        </div>
+        <div class="dstep">
+          <span class="dnum">4</span>
+          <span>Pronto! O <strong>Game Pass Ultimate</strong> ativa na hora ⚡</span>
+        </div>
+      </div>
+
+      <a id="btn-whatsapp" href="#" class="btn-whats" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.5A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1a9 9 0 0 1-3-1.3 11 11 0 0 1-3-3.3c-.6-1-.6-1.8-.5-2.2.1-.4.6-1 1-1.3.2-.1.4-.2.5 0l.8 1.5c.1.2 0 .4 0 .5l-.4.6c-.2.2-.3.4-.1.7.2.4.8 1.3 1.6 1.9.9.7 1.4.8 1.7.9.2 0 .3 0 .5-.2l.6-.7c.2-.2.3-.2.5-.1l1.5.7c.2.1.3.2.3.3.1.2.1.5 0 .8z"/></svg>
+        Falar no WhatsApp
+      </a>
+
+      <div class="order-ref" id="order-ref"></div>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const ref = params.get('ref');
+    if (ref) document.getElementById('order-ref').textContent = 'Pedido: ' + ref;
+
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      const pedido = ref ? `Pedido: ${ref}` : 'um pedido';
+      const msg = encodeURIComponent(`Olá! Acabei de pagar o Game Pass Ultimate (${pedido}) e aguardo minha chave. 😊`);
+      const btn = document.getElementById('btn-whatsapp');
+      btn.href = cfg.whatsapp ? `https://wa.me/${cfg.whatsapp}?text=${msg}` : `https://wa.me/?text=${msg}`;
+    }).catch(() => {});
+  </script>
+</body>
+</html>

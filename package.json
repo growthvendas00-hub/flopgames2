@@ -1,0 +1,14 @@
+{
+  "name": "flopgames-checkout-3meses",
+  "version": "1.0.0",
+  "description": "Checkout PIX - FlopGames Xbox Game Pass (3 Meses / R$ 40)",
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
