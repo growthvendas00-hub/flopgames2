@@ -20,19 +20,26 @@ const fs = require('fs');
 
 const app = express();
 
-// Configurações — defina como variáveis de ambiente na Vercel
-const BRAVOPAY_API_KEY = process.env.BRAVOPAY_API_KEY;
-const BRAVOPAY_URL = 'https://bravopay.club/api/v1';
+// ── Gateway Enki Bank (PIX) — https://app.enki-bank.com/docs ──────────────────
+// Backend: api.qivotech.com.br. Autenticação Basic base64(public_key:secret_key).
+const ENKI_URL = 'https://api.qivotech.com.br';
+const ENKI_PUBLIC_KEY = process.env.ENKI_PUBLIC_KEY;
+const ENKI_SECRET_KEY = process.env.ENKI_SECRET_KEY;
 const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || '';
 
+function enkiConfigurado() { return !!(ENKI_PUBLIC_KEY && ENKI_SECRET_KEY); }
+function enkiAuth() {
+  return 'Basic ' + Buffer.from(`${ENKI_PUBLIC_KEY}:${ENKI_SECRET_KEY}`).toString('base64');
+}
+
 // ── Plano deste checkout ──────────────────────────────────────────────────────
-// Este repositório (flopgames2) = plano de 3 Meses por R$ 40,00 (R$ 13/mês).
-// (O repo flopgames usa os valores do plano de 1 Mês por R$ 20,00.)
+// Este repositório (flopgames2) = plano de 3 Meses por R$ 39,97.
+// (O repo flopgames usa os valores do plano de 1 Mês por R$ 19,97.)
 const PLAN = {
-  amount_cents: 4000,
-  price_now: '40,00',              // exibido após o "R$"
+  amount_cents: 3997,
+  price_now: '39,97',              // exibido após o "R$"
   price_per: '/ 3 meses',
-  old_price: 'de R$ 230,70',       // âncora riscada (3× R$ 76,90)
+  old_price: 'de R$ 230,70',       // âncora riscada
   plan_badge: '3 MESES',           // selo do card + linha do título
   duration_label: '3 Meses',
   plan_name: 'Game Pass Ultimate — 3 Meses'
@@ -60,11 +67,35 @@ function gerarCPF() {
   return [...base, d1, d2].join('');
 }
 
-function formatarTelefone(tel) {
-  let phone = tel.replace(/\D/g, '');
-  if (phone.startsWith('0')) phone = phone.slice(1);
-  if (!phone.startsWith('55')) phone = `55${phone}`;
-  return phone;
+// UTMs (objeto vindo do front) → string única que a Enki espera no campo "utm".
+function montarUtmString(utms) {
+  if (!utms || typeof utms !== 'object') return null;
+  const map = {
+    source: 'utm_source', medium: 'utm_medium', campaign: 'utm_campaign',
+    content: 'utm_content', term: 'utm_term',
+    fbclid: 'fbclid', ttclid: 'ttclid', gclid: 'gclid'
+  };
+  const parts = [];
+  for (const [k, v] of Object.entries(utms)) {
+    if (!v) continue;
+    const key = map[k] || k;
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+  }
+  return parts.length ? '?' + parts.join('&') : null;
+}
+
+// Status da Enki → vocabulário usado pelo front (PENDING / PAID / EXPIRED / CANCELED / FAILED).
+function normalizarStatus(s) {
+  switch (String(s || '').toUpperCase()) {
+    case 'PAID': return 'PAID';
+    case 'EXPIRED': return 'EXPIRED';
+    case 'CANCELLED':
+    case 'CANCELED':
+    case 'REFUNDED':
+    case 'CHARGEBACK': return 'CANCELED';
+    case 'REFUSED': return 'FAILED';
+    default: return 'PENDING'; // PENDING, WAITING_PAYMENT
+  }
 }
 
 // ─── API: Criar PIX ──────────────────────────────────────────────────────────
@@ -75,8 +106,8 @@ app.post('/api/criar-pix', async (req, res) => {
     return res.status(400).json({ error: 'Preencha todos os campos.' });
   }
 
-  if (!BRAVOPAY_API_KEY) {
-    return res.status(500).json({ error: 'Gateway não configurado. Defina BRAVOPAY_API_KEY.' });
+  if (!enkiConfigurado()) {
+    return res.status(500).json({ error: 'Gateway não configurado. Defina ENKI_PUBLIC_KEY e ENKI_SECRET_KEY.' });
   }
 
   const phoneDigits = telefone.replace(/\D/g, '');
@@ -85,27 +116,33 @@ app.post('/api/criar-pix', async (req, res) => {
   }
 
   const body = {
-    amount_cents: AMOUNT_CENTS,
-    method: 'pix',
+    amount: AMOUNT_CENTS,
+    payment_method: 'PIX',
+    items: [{
+      title: PLAN.plan_name,
+      unit_price: AMOUNT_CENTS,
+      quantity: 1,
+      tangible: false,
+      external_ref: PLAN.plan_badge
+    }],
     customer: {
       name: nome.trim(),
       email: email.trim(),
-      phone: formatarTelefone(telefone),
-      cpf: gerarCPF()
-    },
-    external_reference: `flop_${Date.now()}`
+      phone: phoneDigits,
+      document: { number: gerarCPF(), type: 'CPF' }
+    }
   };
 
-  if (utms && typeof utms === 'object' && Object.keys(utms).length) {
-    body.utm = utms;
-  }
+  const utm = montarUtmString(utms);
+  if (utm) body.utm = utm;
+  if (process.env.WEBHOOK_URL) body.postback_url = process.env.WEBHOOK_URL;
 
   try {
-    const resp = await fetch(`${BRAVOPAY_URL}/transactions`, {
+    const resp = await fetch(`${ENKI_URL}/v1/transactions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${BRAVOPAY_API_KEY}`
+        'Authorization': enkiAuth()
       },
       body: JSON.stringify(body)
     });
@@ -113,31 +150,32 @@ app.post('/api/criar-pix', async (req, res) => {
     const data = await resp.json();
 
     if (!resp.ok) {
-      console.error('[BravoPay] Erro:', data);
-      return res.status(resp.status).json({ error: data.message || 'Erro ao gerar PIX.' });
+      console.error('[Enki] Erro ao criar:', resp.status, JSON.stringify(data));
+      return res.status(resp.status).json({ error: data.message || data.error || 'Erro ao gerar PIX.' });
     }
 
+    const tx = data.data || data;            // resposta vem direta (sem wrapper) na criação
+    const pix = tx.pix || {};
     res.json({
-      id: data.id,
-      status: data.status,
-      pix: data.pix,
-      amount_cents: data.amount_cents
+      id: tx.id,
+      status: normalizarStatus(tx.status),
+      pix: { copy_paste: pix.copy_paste, expires_at: pix.expires_at }
     });
   } catch (err) {
-    console.error('[BravoPay] Falha de comunicação:', err.message);
+    console.error('[Enki] Falha de comunicação:', err.message);
     res.status(500).json({ error: 'Falha ao conectar ao gateway de pagamento.' });
   }
 });
 
 // ─── API: Consultar status ────────────────────────────────────────────────────
 app.get('/api/status/:id', async (req, res) => {
-  if (!BRAVOPAY_API_KEY) {
+  if (!enkiConfigurado()) {
     return res.status(500).json({ error: 'Gateway não configurado.' });
   }
 
   try {
-    const resp = await fetch(`${BRAVOPAY_URL}/transactions/${req.params.id}`, {
-      headers: { 'Authorization': `Bearer ${BRAVOPAY_API_KEY}` }
+    const resp = await fetch(`${ENKI_URL}/v1/transactions/${req.params.id}`, {
+      headers: { 'Authorization': enkiAuth() }
     });
 
     const data = await resp.json();
@@ -146,26 +184,29 @@ app.get('/api/status/:id', async (req, res) => {
       return res.status(resp.status).json({ error: 'Transação não encontrada.' });
     }
 
-    res.json({ status: data.status, paid_at: data.paid_at });
+    const tx = data.data || data;            // consulta vem embrulhada em { data: {...} }
+    res.json({ status: normalizarStatus(tx.status), paid_at: tx.paid_at || null });
   } catch (err) {
-    console.error('[BravoPay] Status error:', err.message);
+    console.error('[Enki] Status error:', err.message);
     res.status(500).json({ error: 'Falha ao consultar status.' });
   }
 });
 
-// ─── Webhook BravoPay ─────────────────────────────────────────────────────────
-// Configure esta URL em: bravopay.club/dashboard/integracoes/webhooks
-// URL: https://SEU-DOMINIO.vercel.app/api/webhook
+// ─── Webhook Enki ─────────────────────────────────────────────────────────────
+// Cadastre a URL em app.enki-bank.com → Integrações → Webhooks (ou via postback_url).
+// URL: https://SEU-DOMINIO.vercel.app/api/webhook · Evento: transaction.paid
 app.post('/api/webhook', (req, res) => {
-  const { event, transaction } = req.body || {};
+  const payload = req.body || {};
+  const event = payload.event || payload.type || '';
+  const tx = payload.data || payload.transaction || payload;
 
-  console.log(`[Webhook] ${event}`, transaction?.id);
+  console.log(`[Webhook Enki] ${event}`, tx?.id);
 
-  if (event === 'transaction.paid' && transaction) {
-    const valor = (transaction.amount_cents / 100).toFixed(2);
-    console.log(`[Webhook] PAGO tx=${transaction.id} R$${valor}`);
+  const pago = event === 'transaction.paid' || normalizarStatus(tx?.status) === 'PAID';
+  if (pago) {
+    console.log(`[Webhook] PAGO tx=${tx?.id}`);
     // TODO: Aqui você envia a chave do Game Pass para o cliente
-    // Dados disponíveis: transaction.customer.email, .phone, .name
+    // Dados disponíveis: tx.customer.email, .phone, .name
     // Exemplo: enviar via WhatsApp API ou email
   }
 
@@ -194,7 +235,7 @@ app.use((_req, res) => {
 const PORT = process.env.PORT || 3002;
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
-    console.log(`🎮 FlopGames Checkout: http://localhost:${PORT}`);
+    console.log(`FlopGames Checkout: http://localhost:${PORT}`);
   });
 }
 
